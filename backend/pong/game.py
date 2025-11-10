@@ -135,15 +135,15 @@ class Pong():
                             self.ball.x >= self.agent.x - BALL_SIZE
         hitting_paddle = hitting_agent_paddle or hitting_human_paddle
 
-        # Compute new direction vectors for each of 4 cases
-        if hitting_top and not hitting_paddle:
-            self._update_direction_vector("top")
-        if hitting_bottom and not hitting_paddle:
-            self._update_direction_vector("bottom")
+        # Compute new direction vectors for each of 4 cases, only one per frame
         if hitting_human_paddle:
             self._update_direction_vector("left")
-        if hitting_agent_paddle:
+        elif hitting_agent_paddle:
             self._update_direction_vector("right")
+        elif hitting_top and not hitting_paddle:
+            self._update_direction_vector("top")
+        elif hitting_bottom and not hitting_paddle:
+            self._update_direction_vector("bottom")
 
         # Handle scoring
         scored_left = self.ball.x <= (BUFFER + PADDLE_WIDTH) and not hitting_paddle
