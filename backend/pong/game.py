@@ -1,16 +1,7 @@
-from const import (
-        BALL_SIZE,
-        BALL_VELOCITY,
-        BUFFER,
-        CANVAS_HEIGHT,
-        CANVAS_WIDTH,
-        PADDLE_HEIGHT,
-        PADDLE_VELOCITY,
-        PADDLE_WIDTH,
-)
-
 import logging
 import numpy as np
+import json
+from pathlib import Path
 
 
 logger = logging.getLogger(__name__)
@@ -18,6 +9,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 console_handler = logging.StreamHandler()
 console_handler.setLevel(logging.INFO)
 
+CONSTANTS_PATH = Path(__file__).parent.parent.parent / "config" / "constants.json"
 
 class Ball:
     def __init__(self) -> None:
@@ -38,13 +30,20 @@ class Paddle:
 class Pong():
     """Class representing the Pong game state and logic."""
     def __init__(self) -> None:
-        self.init_agent_pos: tuple[int, int] = (PADDLE_WIDTH, CANVAS_HEIGHT // 2)
-        self.init_human_pos: tuple[int, int] = (CANVAS_WIDTH - BUFFER - PADDLE_WIDTH, CANVAS_HEIGHT // 2)
+        self.const: dict[str, int] = self._load_constants()
+        self.init_agent_pos: tuple[int, int] = (
+            self.const["PADDLE_WIDTH"],
+            self.const["GAME_HEIGHT"] // 2
+        )
+        self.init_human_pos: tuple[int, int] = (
+            self.const["GAME_WIDTH"] - self.const["HORIZONTAL_PADDING"] - self.const["PADDLE_WIDTH"],
+            self.const["GAME_HEIGHT"] // 2,
+        )
         self.agent: Paddle = Paddle(*self.init_agent_pos)
         self.human: Paddle = Paddle(*self.init_human_pos)
-        self.paddle_speed: int = PADDLE_VELOCITY
+        self.paddle_speed: int = self.const["PADDLE_VELOCITY"]
         self.ball: Ball = Ball()
-        self.ball_speed: int = BALL_VELOCITY
+        self.ball_speed: int = self.const["BALL_VELOCITY"]
         self.ball_heading: float
         self.dirvector: np.ndarray
         self.score: dict[str, int] = {"agent": 0, "human": 0}
@@ -58,15 +57,20 @@ class Pong():
         self.game_over: bool = False
         self._get_ball_start_position()
 
+    def _load_constants(self) -> dict[str, int]:
+        """Load game constants from the JSON configuration file."""
+        with open(CONSTANTS_PATH, 'r') as f:
+            return json.load(f)
+
     def _get_ball_start_position(self) -> None:
         """Initialize the ball with a random y position (sampled from a normal distribution),
         centered x position, and heading towards either paddle."""
         # Compute and set y
-        y = np.random.normal(loc=CANVAS_HEIGHT // 2, scale=CANVAS_HEIGHT // 16)
-        y = int(np.clip(y, 0, CANVAS_HEIGHT))
+        y = np.random.normal(loc=self.const["GAME_HEIGHT"] // 2, scale=self.const["GAME_HEIGHT"] // 16)
+        y = int(np.clip(y, 0, self.const["GAME_HEIGHT"]))
         self.ball.y = y
         # Set x always in the middle
-        self.ball.x = CANVAS_WIDTH // 2
+        self.ball.x = self.const["GAME_WIDTH"] // 2
         # Start the ball orthogonally to either left or right paddle
         self.ball_heading = 0. if np.random.randint(0, 2) == 1 else 180.
         # Add slight scale withing +/- 45 degrees
@@ -109,8 +113,8 @@ class Pong():
         assert dir == -1 or dir == 1, "Up and down should be given by -1 and 1 respectively."
         player = self.agent if agent else self.human
 
-        min_y = PADDLE_HEIGHT // 2
-        max_y = CANVAS_HEIGHT - (PADDLE_HEIGHT // 2)
+        min_y = self.const["PADDLE_HEIGHT"] // 2
+        max_y = self.const["GAME_HEIGHT"] - (self.const["PADDLE_HEIGHT"] // 2)
 
         new_y = player.y + dir*self.paddle_speed
         player.y = int(np.clip(new_y, min_y, max_y))
@@ -123,16 +127,16 @@ class Pong():
         Assume perfect reflections and no friction.
         """
         # Handle paddle and wall collisions
-        hitting_top = self.ball.y <= BALL_SIZE
-        hitting_bottom = self.ball.y >= CANVAS_HEIGHT - BALL_SIZE
+        hitting_top = self.ball.y <= self.const["BALL_SIZE"]
+        hitting_bottom = self.ball.y >= self.const["GAME_HEIGHT"] - self.const["BALL_SIZE"]
         def within_paddle_bound(ball_y: float, paddle_y: float) -> bool:
-            top_half = paddle_y - PADDLE_HEIGHT // 2
-            bottom_half = paddle_y + PADDLE_HEIGHT // 2
+            top_half = paddle_y - self.const["PADDLE_HEIGHT"] // 2
+            bottom_half = paddle_y + self.const["PADDLE_HEIGHT"] // 2
             return top_half <= ball_y <= bottom_half
         hitting_agent_paddle = within_paddle_bound(self.ball.y, self.agent.y) and \
-                            self.ball.x <= self.agent.x + PADDLE_WIDTH + BALL_SIZE
+                            self.ball.x <= self.agent.x + self.const["PADDLE_WIDTH"] + self.const["BALL_SIZE"]
         hitting_human_paddle = within_paddle_bound(self.ball.y, self.human.y) and \
-                            self.ball.x >= self.human.x - BALL_SIZE
+                            self.ball.x >= self.human.x - self.const["BALL_SIZE"]
         hitting_paddle = hitting_human_paddle or hitting_agent_paddle
 
         # Compute new direction vectors for each of 4 cases
@@ -146,8 +150,12 @@ class Pong():
             self._update_direction_vector("right")
 
         # Handle scoring
-        scored_left = self.ball.x <= (BUFFER + PADDLE_WIDTH) and not hitting_paddle
-        scored_right = self.ball.x >= CANVAS_WIDTH - (BUFFER + PADDLE_WIDTH) and not hitting_paddle
+        scored_left = self.ball.x <= (
+            self.const["HORIZONTAL_PADDING"] + self.const["PADDLE_WIDTH"]
+        ) and not hitting_paddle
+        scored_right = self.ball.x >= (
+            self.const["GAME_WIDTH"] - (self.const["HORIZONTAL_PADDING"] + self.const["PADDLE_WIDTH"])
+        ) and not hitting_paddle
         if scored_left or scored_right:
             logger.info(f"Score update! Human: {self.score['human']} | Agent: {self.score['agent']}")
             # Update scores
