@@ -13,6 +13,6 @@ class Config(BaseModel):
     paddle_width: int = Field(alias="PADDLE_WIDTH")
     paddle_offset: int = Field(alias="PADDLE_OFFSET")
     ball_size: int = Field(alias="BALL_SIZE")
-    ball_velocity: int = Field(alias="BALL_VELOCITY")
-    paddle_velocity: int = Field(alias="PADDLE_VELOCITY")
+    ball_velocity: float = Field(alias="BALL_VELOCITY")
+    paddle_velocity: float = Field(alias="PADDLE_VELOCITY")
     winning_score: int = Field(alias="WINNING_SCORE")
