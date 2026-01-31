@@ -135,8 +135,8 @@ class Pong():
         """
         def _within_paddle_bound(ball_y: float, paddle_y: float) -> bool:
             """Returns true if ball is within paddle bound (in y-coordinate)"""
-            top_half = paddle_y - self.const.paddle_height // 2
-            bottom_half = paddle_y + self.const.paddle_height // 2
+            top_half = paddle_y - self.const.paddle_height / 2
+            bottom_half = paddle_y + self.const.paddle_height / 2
             return top_half <= ball_y <= bottom_half
 
         # Logic statements for ball collisions
