@@ -1,22 +1,33 @@
 from pydantic import BaseModel
+from pathlib import Path
+from pong.config_loader import Config
+import json
 
-from pong.const import BALL_SIZE, CANVAS_HEIGHT, CANVAS_WIDTH, PADDLE_HEIGHT, PADDLE_WIDTH
+
+# Load constants from JSON configuration file
+CONSTANTS_PATH = Path(__file__).parent.parent.parent / "config" / "constants.json"
+
+with open(CONSTANTS_PATH, "r") as f:
+    data = json.load(f)
+const = Config(**data)
+
 
 class GameState(BaseModel):
     x: int # Ball x-position
     y: int # Ball y-position
-    vx: int # Ball x-velocity
-    vy: int # Ball y-velocity
+    vel: float # Ball velocity
+    angle: float # Ball angle
     p1: int # Player 1 y-position
     p2: int # Player 2 y-position
     score: tuple[int, int] = (0, 0) # (Player 1 score, Player 2 score)
     timestamp: int # 0 through end of game
     gameid: int # Unique game identifier
 
+
 # ============= Frontend -> Backend =============
 class HumanInput(BaseModel):
     """Human input, effectively action space"""
-    human_input: int # 1 down, 0 hold, -1 up
+    human_input: int # consider bool? char? just checking 0/1
 
 #TODO: Request game, leave game?
 class RequestGame(BaseModel):
@@ -45,7 +56,7 @@ class LeaveGame(BaseModel):
 class ScreenConfig(BaseModel):
     """Collision detection relevant parameters.
     Other relevant parameters for rendering computed in frontend."""
-    width: int = CANVAS_WIDTH # 4:3
-    height: int = CANVAS_HEIGHT # 4:3
-    paddle: tuple[int, int] = (PADDLE_WIDTH, PADDLE_HEIGHT)
-    ball: int = BALL_SIZE
+    width: int = const.canvas_width # 4:3
+    height: int = const.canvas_eight # 4:3
+    paddle: tuple[int, int] = (const.paddle_width, const.paddle_height)
+    ball: int = const.ball_size
