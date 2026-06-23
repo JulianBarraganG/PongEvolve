@@ -5,25 +5,13 @@ from fastapi import FastAPI, Depends, WebSocket
 
 from app.config import get_settings, Settings
 from pong.game import Pong
-from pong.game_state import BallState, GameState
+from pong.game_state import GameState
 
 app = FastAPI()
 
 SIM_HZ = 60  # fixed simulation tick rate
 
 logger = logging.getLogger(__name__)
-
-def serialize(game: Pong, tick: int) -> GameState:
-    """Adapter (spec sec 7): translate the authoritative Pong object into a
-    wire snapshot. Casts numpy scalars to Python floats so JSON works."""
-    return GameState(
-        tick=tick,
-        ball=BallState(x=float(game.ball.x), y=float(game.ball.y)),
-        agent=float(game.agent.y),
-        human=float(game.human.y),
-        score=game.score,
-        game_over=game.game_over,
-    )
 
 @app.get("/ping")
 async def health(settings: Settings = Depends(get_settings)):
@@ -41,6 +29,7 @@ async def game_ws(ws: WebSocket, gameid: str):
     while not game.game_over:
         game.move_paddle(human=False, dir=1)
         game.move_ball()
-        await ws.send_json(serialize(game, tick).model_dump())
+        # Currently we just send data, we don't receive input from frontend
+        await ws.send_json(GameState.from_pong(game, tick).model_dump())
         tick += 1
         await asyncio.sleep(1 / SIM_HZ)

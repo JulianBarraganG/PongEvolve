@@ -1,7 +1,11 @@
 from pydantic import BaseModel
 from pathlib import Path
+from typing import TYPE_CHECKING
 from pong.config_loader import Config
 import json
+
+if TYPE_CHECKING:
+    from pong.game import Pong
 
 
 # Load constants from JSON configuration file
@@ -30,6 +34,19 @@ class GameState(BaseModel):
     human: float # human paddle y-position
     score: dict[str, int] = {"agent": 0, "human": 0}
     game_over: bool = False
+
+    @classmethod
+    def from_pong(cls, game: "Pong", tick: int) -> "GameState":
+        """Build a wire snapshot from the authoritative Pong sim.
+        Casts numpy scalars to Python floats so the result is JSON-serializable."""
+        return cls(
+            tick=tick,
+            ball=BallState(x=float(game.ball.x), y=float(game.ball.y)),
+            agent=float(game.agent.y),
+            human=float(game.human.y),
+            score=game.score,
+            game_over=game.game_over,
+        )
 
 
 # ============= Frontend -> Backend =============
