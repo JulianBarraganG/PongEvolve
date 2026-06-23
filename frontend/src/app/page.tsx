@@ -35,6 +35,13 @@ export default function Home() {
       });
     };
     setGameStateWithStartPosition();
+
+    // Echo test: prove the WebSocket pipe. Console-only for now.
+    // Step 2 will replace the fake state above with these messages.
+    const ws = new WebSocket("ws://localhost:8000/ws/test");
+    ws.onopen = () => ws.send(JSON.stringify({ type: "input", input_seq: 1, dir: -1 }));
+    ws.onmessage = (e) => console.log("from server:", JSON.parse(e.data));
+    ws.onerror = (e) => console.log("ws error:", e);
   };
   
 

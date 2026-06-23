@@ -57,6 +57,6 @@ class ScreenConfig(BaseModel):
     """Collision detection relevant parameters.
     Other relevant parameters for rendering computed in frontend."""
     width: int = const.canvas_width # 4:3
-    height: int = const.canvas_eight # 4:3
+    height: int = const.canvas_height # 4:3
     paddle: tuple[int, int] = (const.paddle_width, const.paddle_height)
     ball: int = const.ball_size
