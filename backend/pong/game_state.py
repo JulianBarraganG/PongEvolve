@@ -12,16 +12,24 @@ with open(CONSTANTS_PATH, "r") as f:
 const = Config(**data)
 
 
+class BallState(BaseModel):
+    x: float # Ball x-position (game units)
+    y: float # Ball y-position (game units)
+    # vx/vy intentionally omitted for v0.1: server sends every tick, so the
+    # client has no gaps to fill. Velocity returns with the extrapolation
+    # smoothing layer (see docs/websocket-protocol.md sec 9).
+
+
 class GameState(BaseModel):
-    x: int # Ball x-position
-    y: int # Ball y-position
-    vel: float # Ball velocity
-    angle: float # Ball angle
-    p1: int # Player 1 y-position
-    p2: int # Player 2 y-position
-    score: tuple[int, int] = (0, 0) # (Player 1 score, Player 2 score)
-    timestamp: int # 0 through end of game
-    gameid: int # Unique game identifier
+    """Server -> client snapshot. Fields named by role (agent/human),
+    never positional, so the wire order can't be gotten wrong."""
+    type: str = "state"
+    tick: int # monotonic sim tick this snapshot was sampled at
+    ball: BallState
+    agent: float # agent paddle y-position
+    human: float # human paddle y-position
+    score: dict[str, int] = {"agent": 0, "human": 0}
+    game_over: bool = False
 
 
 # ============= Frontend -> Backend =============
@@ -56,7 +64,7 @@ class LeaveGame(BaseModel):
 class ScreenConfig(BaseModel):
     """Collision detection relevant parameters.
     Other relevant parameters for rendering computed in frontend."""
-    width: int = const.canvas_width # 4:3
-    height: int = const.canvas_height # 4:3
+    width: int = const.game_width # 4:3
+    height: int = const.game_height # 4:3
     paddle: tuple[int, int] = (const.paddle_width, const.paddle_height)
     ball: int = const.ball_size

@@ -12,9 +12,9 @@ export default function Home() {
 
   const startGame = () => {
     setGameStarted(true);
-    //Call the backend API to get start position of the ball and paddles 
-    //Let's simulate this for now
-    //These numbers are just for testing
+
+    // TEMPORARY fake state — placeholder so the render doesn't crash before the
+    // socket delivers real data. DELETE THIS once you render from `state` below.
     const setGameStateWithStartPosition = () => {
       setGameState({
         ...gameState,
@@ -36,10 +36,41 @@ export default function Home() {
     };
     setGameStateWithStartPosition();
 
-    // Echo test: prove the WebSocket pipe. Console-only for now.
-    // Step 2 will replace the fake state above with these messages.
+    // ====================================================================
+    // THIS IS WHERE THE GAME STATE COMES IN.
+    // The backend runs the authoritative Pong sim and pushes one snapshot
+    // per tick over this WebSocket. Full contract: docs/websocket-protocol.md
+    //
+    // Each message (JSON) looks like:
+    //   {
+    //     "type": "state",
+    //     "tick": 189,                       // sim step counter (monotonic)
+    //     "ball":  { "x": 60.0, "y": 52.0 }, // game units, NOT pixels
+    //     "agent": 45.0,                     // agent paddle y  (left  side)
+    //     "human": 45.0,                     // human paddle y  (right side)
+    //     "score": { "agent": 0, "human": 0 },
+    //     "game_over": false
+    //   }
+    //
+    // Coordinates are in game units (board = constants.GAME_WIDTH x
+    // GAME_HEIGHT). Multiply by scaleFactor to get pixels, same as the
+    // existing render code does.
+    //
+    // TODO (frontend): replace the fake state above with this. Roughly:
+    //   ws.onmessage = (e) => {
+    //     const s = JSON.parse(e.data);
+    //     setGameState({
+    //       ball: s.ball,
+    //       machinePaddle: { y: s.agent },   // map agent -> left paddle
+    //       humanPaddle:   { y: s.human },   // map human -> right paddle
+    //       score: { machine: s.score.agent, human: s.score.human },
+    //     });
+    //     if (s.game_over) { /* show win/lose screen */ }
+    //   };
+    // (Send human paddle input back with: ws.send(JSON.stringify({
+    //   type: "input", input_seq: n, dir: -1|0|1 })) — not wired yet.)
+    // ====================================================================
     const ws = new WebSocket("ws://localhost:8000/ws/test");
-    ws.onopen = () => ws.send(JSON.stringify({ type: "input", input_seq: 1, dir: -1 }));
     ws.onmessage = (e) => console.log("from server:", JSON.parse(e.data));
     ws.onerror = (e) => console.log("ws error:", e);
   };
