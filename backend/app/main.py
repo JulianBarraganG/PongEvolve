@@ -1,7 +1,7 @@
 import asyncio
 import logging
 
-from fastapi import FastAPI, Depends, WebSocket
+from fastapi import FastAPI, Depends, WebSocket, WebSocketDisconnect
 
 from app.config import get_settings, Settings
 from pong.game import Pong
@@ -21,15 +21,22 @@ async def health(settings: Settings = Depends(get_settings)):
         "testing": settings.testing,
     }
 
-@app.websocket("/ws/{gameid}")
-async def game_ws(ws: WebSocket, gameid: str):
+@app.websocket("/ws/{game_id}")
+async def game_ws(ws: WebSocket, game_id: str):
     await ws.accept()
     game = Pong()
     tick = 0
-    while not game.game_over:
-        game.move_paddle(human=False, dir=1)
-        game.move_ball()
-        # Currently we just send data, we don't receive input from frontend
-        await ws.send_json(GameState.from_pong(game, tick).model_dump())
-        tick += 1
-        await asyncio.sleep(1 / SIM_HZ)
+    # Ended tag will help us track terminated vs truncated DB for training data
+    ended = "victory"  # vs "disconnected"
+    try:
+        while not game.game_over:
+            game.move_paddle(human=False, dir=1)
+            game.move_ball()
+            # Currently we just send data, we don't receive input from frontend
+            await ws.send_json(GameState.from_pong(game, tick).model_dump())
+            tick += 1
+            await asyncio.sleep(1 / SIM_HZ)
+    except WebSocketDisconnect:
+        ended = "disconnect"
+    finally:
+        logger.info(f"game {game_id} ended in {ended} at tick {tick}")
