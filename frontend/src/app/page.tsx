@@ -7,7 +7,15 @@ import constants from '../../../config/constants.json';
 export default function Home() {
   const [gameStarted, setGameStarted] = useState(false);
   const [scaleFactor, setScaleFactor] = useState(1);
-  const [gameState, setGameState] = useState({});
+
+  //setting initial starting position. These values shouldn't be hardcoded here. 
+  //TODO get them from constants.json
+  const [gameState, setGameState] = useState({
+  ball: { x: 33, y: 25 },
+  agentPaddle: { y: 19 },
+  humanPaddle: { y: 19 },
+  score: { agent: 0, human: 0 },
+});
 
 
   const startGame = () => {
@@ -15,27 +23,7 @@ export default function Home() {
 
     // TEMPORARY fake state — placeholder so the render doesn't crash before the
     // socket delivers real data. DELETE THIS once you render from `state` below.
-    const setGameStateWithStartPosition = () => {
-      setGameState({
-        ...gameState,
-        ball: {
-          x: 33,
-          y: 25,
-        },
-        machinePaddle: {
-          y: 19,
-        },
-        humanPaddle: {
-          y: 19,
-        },
-        score: {
-          machine: 0,
-          human: 0,
-        },
-      });
-    };
-    setGameStateWithStartPosition();
-
+    
     // ====================================================================
     // THIS IS WHERE THE GAME STATE COMES IN.
     // The backend runs the authoritative Pong sim and pushes one snapshot
@@ -61,9 +49,9 @@ export default function Home() {
     //     const s = JSON.parse(e.data);
     //     setGameState({
     //       ball: s.ball,
-    //       machinePaddle: { y: s.agent },   // map agent -> left paddle
+    //       agentPaddle: { y: s.agent },   // map agent -> left paddle
     //       humanPaddle:   { y: s.human },   // map human -> right paddle
-    //       score: { machine: s.score.agent, human: s.score.human },
+    //       score: { agent: s.score.agent, human: s.score.human },
     //     });
     //     if (s.game_over) { /* show win/lose screen */ }
     //   };
@@ -71,7 +59,17 @@ export default function Home() {
     //   type: "input", input_seq: n, dir: -1|0|1 })) — not wired yet.)
     // ====================================================================
     const ws = new WebSocket("ws://localhost:8000/ws/test");
-    ws.onmessage = (e) => console.log("from server:", JSON.parse(e.data));
+    ws.onmessage = (e) => {
+      const s = JSON.parse(e.data);
+      if (s.type !== "state") return;
+      setGameState({
+        ball: s.ball,
+        agentPaddle: { y: s.agent },
+        humanPaddle: { y: s.human },
+        score: { agent: s.score.agent, human: s.score.human },
+      });
+      if (s.game_over) { /* TODO win/lose screen */ }
+    };
     ws.onerror = (e) => console.log("ws error:", e);
   };
   
@@ -131,7 +129,7 @@ export default function Home() {
               <h2 
               className={`text-6xl font-bold font-mono`}
               style={{color: constants.TEXT_COLOR}}>
-                {gameState.score.machine} : {gameState.score.human}
+                {gameState.score.agent} : {gameState.score.human}
               </h2>
             </div>
             
@@ -168,7 +166,7 @@ export default function Home() {
     className={`absolute`}
     style={{
       left: `${constants.PADDLE_OFFSET * scaleFactor}px`,
-      top: `${gameState.machinePaddle.y * scaleFactor}px`,
+      top: `${gameState.humanPaddle.y * scaleFactor}px`,
       width: `${constants.PADDLE_WIDTH * scaleFactor}px`,
       height: `${constants.PADDLE_HEIGHT * scaleFactor}px`,
       backgroundColor: constants.TEXT_COLOR,
@@ -180,7 +178,7 @@ export default function Home() {
     className={`absolute`}
     style={{
       right: `${constants.PADDLE_OFFSET * scaleFactor}px`,
-      top: `${gameState.humanPaddle.y * scaleFactor}px`,
+      top: `${gameState.agentPaddle.y * scaleFactor}px`,
       width: `${constants.PADDLE_WIDTH * scaleFactor}px`,
       height: `${constants.PADDLE_HEIGHT * scaleFactor}px`,
       backgroundColor: constants.TEXT_COLOR,
