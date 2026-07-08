@@ -7,7 +7,7 @@ logger = logging.getLogger("uvicorn")
 
 class Settings(BaseSettings):
     environment: str = "dev"
-    testing: bool = bool(0)
+    testing: bool = False
 
 @lru_cache()
 def get_settings() -> BaseSettings:
