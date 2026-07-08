@@ -34,8 +34,8 @@ export default function Home() {
     //     "type": "state",
     //     "tick": 189,                       // sim step counter (monotonic)
     //     "ball":  { "x": 60.0, "y": 52.0 }, // game units, NOT pixels
-    //     "agent": 45.0,                     // agent paddle y  (left  side)
-    //     "human": 45.0,                     // human paddle y  (right side)
+    //     "agent_pos": 45.0,                 // agent paddle y  (left  side)
+    //     "human_pos": 45.0,                 // human paddle y  (right side)
     //     "score": { "agent": 0, "human": 0 },
     //     "game_over": false
     //   }
@@ -49,8 +49,8 @@ export default function Home() {
     //     const s = JSON.parse(e.data);
     //     setGameState({
     //       ball: s.ball,
-    //       agentPaddle: { y: s.agent },   // map agent -> left paddle
-    //       humanPaddle:   { y: s.human },   // map human -> right paddle
+    //       agentPaddle: { y: s.agent_pos },   // map agent -> left paddle
+    //       humanPaddle:   { y: s.human_pos },   // map human -> right paddle
     //       score: { agent: s.score.agent, human: s.score.human },
     //     });
     //     if (s.game_over) { /* show win/lose screen */ }
@@ -64,8 +64,8 @@ export default function Home() {
       if (s.type !== "state") return;
       setGameState({
         ball: s.ball,
-        agentPaddle: { y: s.agent },
-        humanPaddle: { y: s.human },
+        agentPaddle: { y: s.agent_pos },
+        humanPaddle: { y: s.human_pos },
         score: { agent: s.score.agent, human: s.score.human },
       });
       if (s.game_over) { /* TODO win/lose screen */ }

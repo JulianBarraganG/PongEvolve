@@ -30,8 +30,8 @@ class GameState(BaseModel):
     type: str = "state"
     tick: int # monotonic sim tick this snapshot was sampled at
     ball: BallState
-    agent: float # agent paddle y-position
-    human: float # human paddle y-position
+    agent_pos: float # agent paddle y-position
+    human_pos: float # human paddle y-position
     score: dict[str, int] = {"agent": 0, "human": 0}
     game_over: bool = False
 
@@ -42,8 +42,8 @@ class GameState(BaseModel):
         return cls(
             tick=tick,
             ball=BallState(x=float(game.ball.x), y=float(game.ball.y)),
-            agent=float(game.agent.y),
-            human=float(game.human.y),
+            agent_pos=float(game.agent.y),
+            human_pos=float(game.human.y),
             score=game.score,
             game_over=game.game_over,
         )

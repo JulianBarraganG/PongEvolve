@@ -32,13 +32,13 @@ Get these right now; the latency layer (§ Later) bolts on without a rewrite.
   "type": "state",
   "tick": 189,
   "ball":  { "x": 60.0, "y": 52.0 },
-  "agent": 45.0,
-  "human": 45.0,
+  "agent_pos": 45.0,
+  "human_pos": 45.0,
   "score": { "agent": 0, "human": 0 },
   "game_over": false
 }
 ```
-- Paddles are named by **role** (`agent`, `human`), each a `y` position — never
+- Paddles are named by **role** (`agent_pos`, `human_pos`), each a `y` position — never
   positional `p1/p2`, so wire order can't be gotten wrong. Score likewise a named map.
 - **Position-only ball.** No velocity: the server sends every tick, so the client
   has no gaps to fill. `vx/vy` return only with extrapolation (§ Later).
