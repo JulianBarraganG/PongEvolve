@@ -51,8 +51,12 @@ class Pong():
         self.normal: dict[str, np.ndarray] = {
                 "top": np.array([0., 1.]),
                 "bottom": np.array([0., -1.]),
-                "left": np.array([1., 0.]),
-                "right": np.array([-1., 0.]),
+                "left_center": np.array([1., 0.]),
+                "left_up": np.array([.707, -.707]),
+                "left_down": np.array([.707, .707]),
+                "right_center": np.array([-1., 0.]),
+                "right_up": np.array([-.707, -.707]),
+                "right_down": np.array([-.707, .707])
             }
         self.game_over: bool = False
         # Get the initial dir vector with:
@@ -100,7 +104,7 @@ class Pong():
         """
         assert normal_dir in self.normal.keys(), (
             "Normal direction must be one of 'top', 'bottom',"
-            f" 'left', 'right', not {normal_dir}"
+            f" 'left_center', 'right_center', 'left_up', 'left_down', 'right_up', 'right_down', not {normal_dir}"
         )
         
         normal = self.normal[normal_dir]
@@ -138,6 +142,18 @@ class Pong():
             top_half = paddle_y - self.const.paddle_height / 2
             bottom_half = paddle_y + self.const.paddle_height / 2
             return top_half <= ball_y <= bottom_half
+        
+        def _which_paddle_part(ball_y: float, paddle_y: float) -> str:
+            """Returns which part of the paddle the ball is hitting: 'center', 'up' or 'down'"""
+
+            top_half = paddle_y - self.const.paddle_height / 2
+            bottom_half = paddle_y + self.const.paddle_height / 2
+            if ball_y < top_half + self.const.paddle_height / 3:
+                return "_up"
+            elif ball_y > bottom_half - self.const.paddle_height / 3:
+                return "_down"
+            else:
+                return "_center"
 
         # Logic statements for ball collisions
         hitting_top = self.ball.y <= self.const.ball_size
@@ -154,9 +170,9 @@ class Pong():
 
         # Compute new direction vectors for each of 4 cases, only one per frame
         if hitting_agent_paddle:
-            self._update_direction_vector("left")
+            self._update_direction_vector("left" + _which_paddle_part(self.ball.y, self.agent.y))
         elif hitting_human_paddle:
-            self._update_direction_vector("right")
+            self._update_direction_vector("right" + _which_paddle_part(self.ball.y, self.human.y))
         elif hitting_top and not hitting_paddle:
             self._update_direction_vector("top")
         elif hitting_bottom and not hitting_paddle:
