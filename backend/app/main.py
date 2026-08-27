@@ -28,8 +28,20 @@ async def game_ws(ws: WebSocket, game_id: str):
     tick = 0
     # Ended tag will help us track terminated vs truncated DB for training data
     ended = "victory"  # vs "disconnected"
+    human_dir = 0
+
+    async def reader():
+        nonlocal human_dir
+        while True:
+            msg = await ws.receive_json()
+            if msg.get("type") == "input":
+                human_dir = msg.get("dir", 0)
+
+    read_task = asyncio.create_task(reader())
+
     try:
         while not game.game_over:
+            game.move_paddle(human=True, dir=human_dir)
             game.move_paddle(human=False, dir=1)
             game.move_ball()
             # Currently we just send data, we don't receive input from frontend
@@ -39,4 +51,5 @@ async def game_ws(ws: WebSocket, game_id: str):
     except WebSocketDisconnect:
         ended = "disconnect"
     finally:
+        read_task.cancel()
         logger.info(f"game {game_id} ended in {ended} at tick {tick}")

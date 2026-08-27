@@ -31,7 +31,7 @@ class Paddle:
     def __repr__(self) -> str:
         return f"Paddle with pos=({self.x}, {self.y})"
 
-class Pong():
+class Pong:
     """Class representing the Pong game state and logic."""
     def __init__(self) -> None:
         self.const: Config = self._load_constants()
@@ -40,7 +40,7 @@ class Pong():
             self.const.game_height / 2
         )
         self.init_agent_pos: tuple[int, float] = (
-            self.const.game_height - self.const.paddle_offset - self.const.paddle_width,
+            self.const.game_width - self.const.paddle_offset - self.const.paddle_width,
             self.const.game_height / 2,
         )
         self.ball: Ball = Ball()
@@ -88,7 +88,7 @@ class Pong():
                 np.sin(np.radians(_ball_heading))
                 ])
 
-    def _update_direction_vector(self, normal_dir: str) -> None:
+    def _bounce_off_wall(self, normal_dir: str) -> None:
         """
         Assuming perfect reflection, this computes the updated direction vector
         reflected on one of the 4 normals.
@@ -98,13 +98,49 @@ class Pong():
         normal_dir
             One of "top", "bottom", "left", "right" indicating which normal to reflect on.
         """
-        assert normal_dir in self.normal.keys(), (
+        assert normal_dir in self.normal, (
             "Normal direction must be one of 'top', 'bottom',"
-            f" 'left', 'right', not {normal_dir}"
+            f" 'left', 'right',  not {normal_dir}"
         )
         
         normal = self.normal[normal_dir]
         self.dirvector = self.dirvector - 2*np.dot(self.dirvector, normal)*normal
+
+    def _bounce_off_paddle(self, paddle: Paddle, going_right: bool) -> None:
+        """Deflect the ball off a paddle face. The outgoing angle is a pure
+        function of where on the paddle the ball struck: MIN_ANGLE at the top
+        edge, 180 - MIN_ANGLE at the bottom, linear in between. The incoming
+        direction is discarded.
+
+        Parameters
+        ----------
+        paddle
+            The paddle being struck. Its y is the vertical centre.
+        going_right
+            True if the ball should leave towards +x (human/left paddle).
+        """
+        h = self.const.paddle_height
+        # Normalised hit position: 0.0 at the paddle's top edge, 1.0 at its bottom.
+        t = float(np.clip((self.ball.y - (paddle.y - h / 2)) / h, 0., 1.))
+
+        a = self.const.min_angle
+        theta = np.radians(a + t * (180. - 2. * a))
+
+        # theta is measured from the paddle's up-axis through its outward normal,
+        # so sin -> outward, -cos -> along the paddle (y grows downwards).
+        self.dirvector = np.array([
+            (1. if going_right else -1.) * np.sin(theta),
+            -np.cos(theta),
+        ])
+
+        # Clear the ball of the paddle face so the collision test cannot re-fire.
+        self.ball.x = (
+            paddle.x + self.const.paddle_width + self.const.ball_size
+            if going_right else paddle.x - self.const.ball_size
+        )
+
+        #Increase velocity on ball
+        self.const.ball_velocity *= self.const.paddle_velocity_increase_factor
 
     def move_paddle(self, human: bool, dir: int) -> None:
         """
@@ -137,7 +173,7 @@ class Pong():
             """Returns true if ball is within paddle bound (in y-coordinate)"""
             top_half = paddle_y - self.const.paddle_height / 2
             bottom_half = paddle_y + self.const.paddle_height / 2
-            return top_half <= ball_y <= bottom_half
+            return top_half <= ball_y <= bottom_half 
 
         # Logic statements for ball collisions
         hitting_top = self.ball.y <= self.const.ball_size
@@ -154,13 +190,13 @@ class Pong():
 
         # Compute new direction vectors for each of 4 cases, only one per frame
         if hitting_agent_paddle:
-            self._update_direction_vector("left")
+            self._bounce_off_paddle(self.agent, going_right=False)
         elif hitting_human_paddle:
-            self._update_direction_vector("right")
+            self._bounce_off_paddle(self.human, going_right=True)
         elif hitting_top and not hitting_paddle:
-            self._update_direction_vector("top")
+            self._bounce_off_wall("top")
         elif hitting_bottom and not hitting_paddle:
-            self._update_direction_vector("bottom")
+            self._bounce_off_wall("bottom")
 
         # Handle scoring
         scored_left = self.ball.x <= (
