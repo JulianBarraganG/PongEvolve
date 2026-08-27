@@ -16,3 +16,5 @@ class Config(BaseModel):
     ball_velocity: float = Field(alias="BALL_VELOCITY")
     paddle_velocity: float = Field(alias="PADDLE_VELOCITY")
     winning_score: int = Field(alias="WINNING_SCORE")
+    min_angle: float = Field(alias="MIN_ANGLE")
+    paddle_velocity_increase_factor: float = Field(alias="PADDLE_VELOCITY_INCREASE_FACTOR")
