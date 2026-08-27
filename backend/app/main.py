@@ -1,9 +1,10 @@
 import asyncio
 import logging
+import random
 
 from fastapi import FastAPI, Depends, WebSocket, WebSocketDisconnect
 
-from app.config import get_settings, Settings
+from app.config import get_settings
 from pong.game import Pong
 from pong.game_state import GameState
 
@@ -14,7 +15,8 @@ SIM_HZ = 60  # fixed simulation tick rate
 logger = logging.getLogger(__name__)
 
 @app.get("/ping")
-async def health(settings: Settings = Depends(get_settings)):
+async def health():
+    settings = Depends(get_settings)
     return {
         "ping": "pong",
         "environment": settings.environment,
@@ -42,7 +44,7 @@ async def game_ws(ws: WebSocket, game_id: str):
     try:
         while not game.game_over:
             game.move_paddle(human=True, dir=human_dir)
-            game.move_paddle(human=False, dir=1)
+            game.move_paddle(human=False, dir=0)
             game.move_ball()
             # Currently we just send data, we don't receive input from frontend
             await ws.send_json(GameState.from_pong(game, tick).model_dump())
