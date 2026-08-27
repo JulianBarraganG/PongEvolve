@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from "react";
 import constants from '../../../config/constants.json';
-
+type gamePhase = "menu" | "playing" | "game_over";
 
 export default function Home() {
-  const [gameStarted, setGameStarted] = useState(false);
-  const [scaleFactor, setScaleFactor] = useState(1);
+
+	const [gamePhase, setGamePhase] = useState<gamePhase>("menu");
+    const [scaleFactor, setScaleFactor] = useState(1);
 
   //setting initial starting position. These values shouldn't be hardcoded here. 
   //TODO get them from constants.json
@@ -18,61 +19,60 @@ export default function Home() {
 });
 
 
-  const startGame = () => {
-    setGameStarted(true);
+  const startGame = () => setGamePhase("playing");
 
-    // TEMPORARY fake state — placeholder so the render doesn't crash before the
-    // socket delivers real data. DELETE THIS once you render from `state` below.
-    
-    // ====================================================================
-    // THIS IS WHERE THE GAME STATE COMES IN.
-    // The backend runs the authoritative Pong sim and pushes one snapshot
-    // per tick over this WebSocket. Full contract: docs/websocket-protocol.md
-    //
-    // Each message (JSON) looks like:
-    //   {
-    //     "type": "state",
-    //     "tick": 189,                       // sim step counter (monotonic)
-    //     "ball":  { "x": 60.0, "y": 52.0 }, // game units, NOT pixels
-    //     "agent_pos": 45.0,                 // agent paddle y  (left  side)
-    //     "human_pos": 45.0,                 // human paddle y  (right side)
-    //     "score": { "agent": 0, "human": 0 },
-    //     "game_over": false
-    //   }
-    //
-    // Coordinates are in game units (board = constants.GAME_WIDTH x
-    // GAME_HEIGHT). Multiply by scaleFactor to get pixels, same as the
-    // existing render code does.
-    //
-    // TODO (frontend): replace the fake state above with this. Roughly:
-    //   ws.onmessage = (e) => {
-    //     const s = JSON.parse(e.data);
-    //     setGameState({
-    //       ball: s.ball,
-    //       agentPaddle: { y: s.agent_pos },   // map agent -> left paddle
-    //       humanPaddle:   { y: s.human_pos },   // map human -> right paddle
-    //       score: { agent: s.score.agent, human: s.score.human },
-    //     });
-    //     if (s.game_over) { /* show win/lose screen */ }
-    //   };
-    // (Send human paddle input back with: ws.send(JSON.stringify({
-    //   type: "input", input_seq: n, dir: -1|0|1 })) — not wired yet.)
-    // ====================================================================
-    const ws = new WebSocket("ws://localhost:8000/ws/test");
-    ws.onmessage = (e) => {
-      const s = JSON.parse(e.data);
-      if (s.type !== "state") return;
-      setGameState({
-        ball: s.ball,
-        agentPaddle: { y: s.agent_pos },
-        humanPaddle: { y: s.human_pos },
-        score: { agent: s.score.agent, human: s.score.human },
-      });
-      if (s.game_over) { /* TODO win/lose screen */ }
-    };
-    ws.onerror = (e) => console.log("ws error:", e);
-  };
-  
+
+  useEffect(() => {
+	  if(!(gamePhase === "playing")) return;
+	  const ws = new WebSocket("ws://localhost:8000/ws/test");
+	  const held = new Set<string>();
+	  let lastDir = 0;
+	  let seq = 0;
+
+	  const send = () => {
+		  if (ws.readyState !== WebSocket.OPEN) return;
+		  const dir = (held.has("ArrowUp") ? -1 :0) + (held.has("ArrowDown") ? 1 : 0);
+		  if (dir === lastDir) return;
+		  lastDir = dir;
+		  ws.send(JSON.stringify({ type: "input", input_seq: seq++, dir }));
+	  }
+
+	  const down = (e: KeyboardEvent) => {
+		  if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+			  e.preventDefault()
+			  held.add(e.key);
+			  send();
+		  }
+	  }
+	  const up = (e: KeyboardEvent) => { if (held.delete(e.key)) send(); };
+
+	  ws.onmessage = (e) => {
+		  const s = JSON.parse(e.data);
+		  if (s.type !== "state") return;
+		  setGameState({
+			  ball: s.ball,
+			  agentPaddle: { y: s.agent_pos },
+			  humanPaddle: { y: s.human_pos },
+			  score: { agent: s.score.agent, human: s.score.human },
+		  });
+		  if (s.game_over) {
+		  ws.close();
+		  setGamePhase("game_over");
+		  }
+	  };
+	  ws.onerror = (e) => console.log("ws error:", e);
+
+	  window.addEventListener("keydown", down);
+	  window.addEventListener("keyup", up); 
+
+	  return () => {
+		  window.removeEventListener("keydown", down);
+		  window.removeEventListener("keyup", up);
+		  ws.close();                                         // idempotent if already closed
+	  };
+
+
+  }, [gamePhase]);
 
   useEffect(() => {
     const calculateScale = () => {
@@ -91,7 +91,7 @@ export default function Home() {
     window.addEventListener('resize', calculateScale);
     
     return () => window.removeEventListener('resize', calculateScale);
-  }, [constants.GAME_WIDTH, constants.GAME_HEIGHT]);
+  }, []);
 
   // Calculate actual pixel dimensions
   const displayWidth = constants.GAME_WIDTH * scaleFactor;
@@ -99,15 +99,14 @@ export default function Home() {
 
    return (
     <div
-      className={`flex min-h-screen ${!gameStarted ? 'items-center justify-center' : ''}`}
+      className={`flex min-h-screen ${gamePhase === "menu" ? 'items-center justify-center' : ''}`}
       style={{ backgroundColor: constants.PAGE_BACKGROUND_COLOR }}
     >
       <main
-        className={`flex min-h-screen w-full flex-col items-center px-16 ${!gameStarted ? 'justify-center' : 'justify-start pt-8'}`}
+        className={`flex min-h-screen w-full flex-col items-center px-16 ${gamePhase === "menu" ? 'justify-center' : 'justify-start pt-8'}`}
         style={{ backgroundColor: constants.PAGE_BACKGROUND_COLOR }}
       > 
-        {!gameStarted ? (
-          // Welcome Screen (disappears when button is clicked)
+        {gamePhase === "menu" ? (
           <div className="flex flex-col items-center gap-8 text-center">
             <h1 className={`text-6xl font-bold tracking-wider font-mono`}
             style={{color: constants.TEXT_COLOR}}>
@@ -121,7 +120,7 @@ export default function Home() {
               PLAY
             </button>
           </div>
-        ) : (
+        ) : gamePhase === "playing" ? (
          // Game Screen
           <div className="flex flex-col items-center justify-center w-full">
             {/* Score at the top */}
@@ -132,10 +131,15 @@ export default function Home() {
                 {gameState.score.agent} : {gameState.score.human}
               </h2>
             </div>
+
+
+
             
            {/* Game view using constants.GAME_WIDTH and constants.GAME_HEIGHT */}
+
+
 <div 
-  className={`relative`} 
+  className={`relative` } 
   style={{ 
     width: `${displayWidth}px`, 
     height: `${displayHeight}px`, 
@@ -161,12 +165,13 @@ export default function Home() {
     )
   ))}
 
+
    {/* Left paddle */}
   <div
     className={`absolute`}
     style={{
       left: `${constants.PADDLE_OFFSET * scaleFactor}px`,
-      top: `${gameState.humanPaddle.y * scaleFactor}px`,
+      top: `${(gameState.humanPaddle.y - constants.PADDLE_HEIGHT/2) * scaleFactor}px`,
       width: `${constants.PADDLE_WIDTH * scaleFactor}px`,
       height: `${constants.PADDLE_HEIGHT * scaleFactor}px`,
       backgroundColor: constants.TEXT_COLOR,
@@ -178,7 +183,7 @@ export default function Home() {
     className={`absolute`}
     style={{
       right: `${constants.PADDLE_OFFSET * scaleFactor}px`,
-      top: `${gameState.agentPaddle.y * scaleFactor}px`,
+      top: `${(gameState.agentPaddle.y - constants.PADDLE_HEIGHT/2) * scaleFactor}px`,
       width: `${constants.PADDLE_WIDTH * scaleFactor}px`,
       height: `${constants.PADDLE_HEIGHT * scaleFactor}px`,
       backgroundColor: constants.TEXT_COLOR,
@@ -197,8 +202,45 @@ export default function Home() {
     }}
   />
 </div>          </div>
-        )}
+        
+
+   ) : 
+ gamePhase === "game_over" && (
+            <div className="flex flex-col items-center w-full">
+              {/* Score — same position as during play */}
+              <div className="py-4 text-center w-full">
+                <h2
+                className={`text-6xl font-bold font-mono`}
+                style={{color: constants.TEXT_COLOR}}>
+                  {gameState.score.human} : {gameState.score.agent}
+                </h2>
+              </div>
+
+              {/* Board's footprint, contents centered inside it */}
+              <div
+                className="flex flex-col items-center justify-center gap-8 text-center"
+                style={{ width: `${displayWidth}px`, height: `${displayHeight}px` }}
+              >
+                <h2 className={`text-4xl font-bold tracking-wider font-mono`}
+                style={{color: constants.TEXT_COLOR}}>
+                  Game over! Thanks for helping the robot learn :)
+                </h2>
+
+                <button
+                  onClick={startGame}
+                  className={`px-12 py-4 font-bold text-2xl rounded-lg transition-all duration-200 font-mono`}
+                  style={{backgroundColor: constants.TEXT_COLOR, color: constants.PAGE_BACKGROUND_COLOR}}
+                >
+                  REPLAY
+                </button>
+              </div>
+            </div>
+)}
       </main>
     </div>
+
+
   );
+
+
 }
