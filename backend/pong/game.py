@@ -40,7 +40,7 @@ class Pong():
             self.const.game_height / 2
         )
         self.init_agent_pos: tuple[int, float] = (
-            self.const.game_height - self.const.paddle_offset - self.const.paddle_width,
+            self.const.game_width - self.const.paddle_offset - self.const.paddle_width,
             self.const.game_height / 2,
         )
         self.ball: Ball = Ball()

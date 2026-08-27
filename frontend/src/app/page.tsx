@@ -18,61 +18,53 @@ export default function Home() {
 });
 
 
-  const startGame = () => {
-    setGameStarted(true);
+  const startGame = () => setGameStarted(true);
 
-    // TEMPORARY fake state — placeholder so the render doesn't crash before the
-    // socket delivers real data. DELETE THIS once you render from `state` below.
-    
-    // ====================================================================
-    // THIS IS WHERE THE GAME STATE COMES IN.
-    // The backend runs the authoritative Pong sim and pushes one snapshot
-    // per tick over this WebSocket. Full contract: docs/websocket-protocol.md
-    //
-    // Each message (JSON) looks like:
-    //   {
-    //     "type": "state",
-    //     "tick": 189,                       // sim step counter (monotonic)
-    //     "ball":  { "x": 60.0, "y": 52.0 }, // game units, NOT pixels
-    //     "agent_pos": 45.0,                 // agent paddle y  (left  side)
-    //     "human_pos": 45.0,                 // human paddle y  (right side)
-    //     "score": { "agent": 0, "human": 0 },
-    //     "game_over": false
-    //   }
-    //
-    // Coordinates are in game units (board = constants.GAME_WIDTH x
-    // GAME_HEIGHT). Multiply by scaleFactor to get pixels, same as the
-    // existing render code does.
-    //
-    // TODO (frontend): replace the fake state above with this. Roughly:
-    //   ws.onmessage = (e) => {
-    //     const s = JSON.parse(e.data);
-    //     setGameState({
-    //       ball: s.ball,
-    //       agentPaddle: { y: s.agent_pos },   // map agent -> left paddle
-    //       humanPaddle:   { y: s.human_pos },   // map human -> right paddle
-    //       score: { agent: s.score.agent, human: s.score.human },
-    //     });
-    //     if (s.game_over) { /* show win/lose screen */ }
-    //   };
-    // (Send human paddle input back with: ws.send(JSON.stringify({
-    //   type: "input", input_seq: n, dir: -1|0|1 })) — not wired yet.)
-    // ====================================================================
-    const ws = new WebSocket("ws://localhost:8000/ws/test");
-    ws.onmessage = (e) => {
-      const s = JSON.parse(e.data);
-      if (s.type !== "state") return;
-      setGameState({
-        ball: s.ball,
-        agentPaddle: { y: s.agent_pos },
-        humanPaddle: { y: s.human_pos },
-        score: { agent: s.score.agent, human: s.score.human },
-      });
-      if (s.game_over) { /* TODO win/lose screen */ }
-    };
-    ws.onerror = (e) => console.log("ws error:", e);
-  };
-  
+  useEffect(() => {
+	  if(!gameStarted) return;
+	  const ws = new WebSocket("ws://localhost:8000/ws/test");
+	  const held = new Set<string>();
+	  let lastDir = 0;
+	  let seq = 0;
+
+	  const send = () => {
+		  if (ws.readyState !== WebSocket.OPEN) return;
+		  const dir = (held.has("ArrowUp") ? -1 :0) + (held.has("ArrowDown") ? 1 : 0);
+		  if (dir === lastDir) return;
+		  lastDir = dir;
+		  ws.send(JSON.stringify({ type: "input", input_seq: seq++, dir }));
+	  }
+
+	  const down = (e: KeyboardEvent) => {
+		  if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+			  e.preventDefault()
+			  held.add(e.key);
+			  send();
+		  }
+	  }
+	  const up = (e: KeyboardEvent) => { if (held.delete(e.key)) send(); };
+
+	  ws.onmessage = (e) => {
+		  const s = JSON.parse(e.data);
+		  if (s.type !== "state") return;
+		  setGameState({
+			  ball: s.ball,
+			  agentPaddle: { y: s.agent_pos },
+			  humanPaddle: { y: s.human_pos },
+			  score: { agent: s.score.agent, human: s.score.human },
+		  });
+		  if (s.game_over) { /* TODO win/lose screen */ }
+	  };
+	  ws.onerror = (e) => console.log("ws error:", e);
+
+	  window.addEventListener("keydown", down);
+	  window.addEventListener("keyup", up);
+	  return () => {
+		  window.removeEventListener("keydown", down);
+		  window.removeEventListener("keyup", up);
+		  ws.close();                                         // idempotent if already closed
+	  };
+  }, [gameStarted]);
 
   useEffect(() => {
     const calculateScale = () => {
@@ -91,7 +83,7 @@ export default function Home() {
     window.addEventListener('resize', calculateScale);
     
     return () => window.removeEventListener('resize', calculateScale);
-  }, [constants.GAME_WIDTH, constants.GAME_HEIGHT]);
+  }, []);
 
   // Calculate actual pixel dimensions
   const displayWidth = constants.GAME_WIDTH * scaleFactor;
@@ -166,7 +158,7 @@ export default function Home() {
     className={`absolute`}
     style={{
       left: `${constants.PADDLE_OFFSET * scaleFactor}px`,
-      top: `${gameState.humanPaddle.y * scaleFactor}px`,
+      top: `${(gameState.humanPaddle.y - constants.PADDLE_HEIGHT/2) * scaleFactor}px`,
       width: `${constants.PADDLE_WIDTH * scaleFactor}px`,
       height: `${constants.PADDLE_HEIGHT * scaleFactor}px`,
       backgroundColor: constants.TEXT_COLOR,
@@ -178,7 +170,7 @@ export default function Home() {
     className={`absolute`}
     style={{
       right: `${constants.PADDLE_OFFSET * scaleFactor}px`,
-      top: `${gameState.agentPaddle.y * scaleFactor}px`,
+      top: `${(gameState.agentPaddle.y - constants.PADDLE_HEIGHT/2) * scaleFactor}px`,
       width: `${constants.PADDLE_WIDTH * scaleFactor}px`,
       height: `${constants.PADDLE_HEIGHT * scaleFactor}px`,
       backgroundColor: constants.TEXT_COLOR,
